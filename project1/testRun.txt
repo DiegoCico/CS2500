@@ -1,0 +1,4 @@
+how are you|good
+where is brazil|south america
+1+1|2
+2+2|4
