@@ -1,50 +1,31 @@
 // -----------------------------------------------------------------
 // Homework 6, Problem 3
 // -----------------------------------------------------------------
+import khoury.CapturedResult
+import khoury.EnabledTest
+import khoury.captureResults
+import khoury.input
+import khoury.runEnabledTests
+import khoury.testSame
 
-// In this problem you'll peel back the covers behind...
-// reactConsole!!! You'll first implement the (functional) version
-// you've been using, and then experience what an imperative
-// version would feel like :)
-
-// TODO 1/2: Use loops and mutation to implement funcReactConsole,
-//           which works mostly like what you've been using all
-//           semester in the Khoury library...
-//
-//           a) Start at the (supplied) initial state
-//           b) Check if it is a terminal state (via the supplied
-//              predicate); if not...
-//              i.   Use the supplied rendering function to print to
-//                   the screen the rendering of the current state
-//                   as its own line.
-//              ii.  Use the supplied transition function to change
-//                   the current state.
-//              iii. Done with this time through the loop!
-//           c) Once a terminal state is achieved, use the
-//              supplied terminal rendering function to print to
-//              the screen the rendering of the terminal state as
-//              its own line.
-//           d) Return the terminal state.
-//
-//           Note: the real version uses default arguments, which
-//                 we haven't covered, so this version *requires*
-//                 that a terminal rendering function is supplied.
-//
-//           You have been supplied tests that should pass once the
-//           function has been completed.
-//
-//           Note: while this is called funcReactConsole, and feels
-//                 like a functional interface to the problem, you
-//                 must implement it using loops and mutation!
-//
-
-fun <T> funcReactConsole(
-    initialState: <T>,
-    stateToText: (<T>) -> String,
-    nextState: (<T>,String) -> String,
-    isTerminalState: (<T>) -> Boolean,
-    terminalStateToText: (<T>) -> String): <T> {
-        
+// goes through every variable according to reactConsole
+fun <S> funcReactConsole(
+    initialState: S,
+    stateToText: (S) -> String,
+    nextState: (S, String) -> S,
+    isTerminalState: (S) -> Boolean,
+    terminalStateToText: (S) -> String,
+): S {
+    var nS = initialState
+    while (true) {
+        println(stateToText(nS))
+        nS = nextState(nS, input())
+        if (isTerminalState(nS)) {
+            break
+        }
+    }
+    println(terminalStateToText(nS))
+    return nS
 }
 
 @EnabledTest
@@ -55,18 +36,24 @@ fun testFunReactConsole() {
                 funcReactConsole(
                     initialState = 1,
                     stateToText = { s -> "$s" },
-                    nextState = { s,_ -> 2 * s },
+                    nextState = { s, _ -> 2 * s },
                     isTerminalState = { s -> s >= 100 },
-                    terminalStateToText = { _ -> "fin." }
+                    terminalStateToText = { _ -> "fin." },
                 )
             },
-            "", "", "", "", "", "", ""
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
         ),
         CapturedResult(
             128,
-            "1", "2", "4", "8", "16", "32", "64", "fin."
+            "1", "2", "4", "8", "16", "32", "64", "fin.",
         ),
-        "doubling"
+        "doubling",
     )
 
     testSame(
@@ -77,10 +64,13 @@ fun testFunReactConsole() {
                     stateToText = { s -> "$s!" },
                     nextState = { _, kbInput -> kbInput },
                     isTerminalState = { s -> s == "done" },
-                    terminalStateToText = { s -> "$s!!!" }
+                    terminalStateToText = { s -> "$s!!!" },
                 )
             },
-            "howdy", "cool", "getting old", "done"
+            "howdy",
+            "cool",
+            "getting old",
+            "done",
         ),
         CapturedResult(
             "done",
@@ -88,22 +78,11 @@ fun testFunReactConsole() {
             "howdy!",
             "cool!",
             "getting old!",
-            "done!!!"
+            "done!!!",
         ),
-        "done yet?"
+        "done yet?",
     )
 }
-
-// TODO 2/2: NOW, we've provided an imperative implementation,
-//           whereas you need to implement the classes necessary
-//           for the associated tests (which are basically the
-//           same as above) to run successfully.
-//
-//           Make sure to follow the best practices you've learned
-//           for designing classes with mutable state (i.e., these
-//           should not be data classes, mutable data should be
-//           private, and of course you'll need to test them!).
-//
 
 // member functions necessary for a
 // class to utilize the imperative
@@ -121,6 +100,34 @@ interface IReactStateImp {
 
     // render terminal states
     fun terminalToText(): String
+}
+
+// Follows along the IReactStateImp with its own implements to make it work as intended
+data class DoublingState(private var n: Int) : IReactStateImp {
+    override fun toText(): String = n.toString()
+
+    override fun transition(i: String) {
+        n *= 2
+    }
+
+    override fun isTerminal(): Boolean = if (n >= 128) true else false
+
+    override fun terminalToText(): String = "fin."
+
+    fun getNum(): Int = n
+}
+
+// Follows along the IReactStateImp with its own implements to make it work as intended
+data class DoneYetState(var word: String, val end: String) : IReactStateImp {
+    override fun toText(): String = "$word!"
+
+    override fun transition(i: String) {
+        word = i
+    }
+
+    override fun isTerminal(): Boolean = if (word == end) true else false
+
+    override fun terminalToText(): String = "$end!!!"
 }
 
 // implements reactConsole imperatively
@@ -196,3 +203,5 @@ fun testImpReactConsole() {
         "done yet?: I/O",
     )
 }
+
+runEnabledTests(this)

@@ -1,32 +1,36 @@
 // -----------------------------------------------------------------
 // Homework 6, Problem 1
 // -----------------------------------------------------------------
-import khoury.CapturedResult
 import khoury.EnabledTest
-import khoury.captureResults
-import khoury.fileExists
-import khoury.fileReadAsList
-import khoury.linesToString
-import khoury.reactConsole
 import khoury.runEnabledTests
 import khoury.testSame
 
-fun myInplaceMap(l: MutableList<Int>): List<Int>{
-    return l.map{it*2}
+// implements the list and the function into this function and it combines them together
+fun <T> myInplaceMap(
+    l: MutableList<T>,
+    func: (MutableList<T>) -> List<T>,
+): List<T> {
+    return func(l)
 }
 
 @EnabledTest
-fun testMyInplaceMap(){
+fun testMyInplaceMap() {
     testSame(
-        myInplaceMap(mutableListOf()),
+        myInplaceMap(mutableListOf(), { t: MutableList<Int> -> t.map { it * 2 } }),
         listOf(),
-        "EMPTY"
+        "EMPTY",
     )
 
     testSame(
-        myInplaceMap(mutableListOf(1,2,3)),
-        listOf(2,4,6),
-        "123"
+        myInplaceMap(mutableListOf(1, 2, 3), { t: MutableList<Int> -> t.map { it * 2 } }),
+        listOf(2, 4, 6),
+        "123",
+    )
+
+    testSame(
+        myInplaceMap(mutableListOf("Hi", "Bye", "Nice"), { t: MutableList<String> -> t.map { it + "!" } }),
+        listOf("Hi!", "Bye!", "Nice!"),
+        "Strings",
     )
 }
 

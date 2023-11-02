@@ -13,6 +13,9 @@ data class SneakyNode(
     val nextNodeIndex: Int,
 )
 
+// uses do while to go through each of the nodes until it reaches -1 node
+// once it finds it in the secret message it adds to a String
+// could had used StringBuilder however did not see the need to
 fun secretMessage(
     sn: List<SneakyNode>,
     p: List<String>,
