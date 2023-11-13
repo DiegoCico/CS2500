@@ -50,6 +50,10 @@ fun <T> topK(
     eF: EvaluationFunction<T>,
     k: Int,
 ): List<T> {
+    if (items.isEmpty()) {
+        return emptyList()
+    }
+
     fun initFunc(s: T): ItemScore<T> {
         return ItemScore(s, eF(s))
     }
@@ -87,9 +91,15 @@ fun testTopK() {
     )
 
     testSame(
-        topK(listOf(""), { s -> s.length }, 5),
-        listOf(""),
-        "empty",
+        topK(emptyList<Int>(), { s -> s }, 5),
+        listOf(),
+        "empty/INT",
+    )
+
+    testSame(
+        topK(emptyList<String>(), { s -> s.length }, 5),
+        listOf(),
+        "empty/STRING",
     )
 }
 
