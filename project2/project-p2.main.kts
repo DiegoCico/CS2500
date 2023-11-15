@@ -10,6 +10,7 @@ import khoury.linesToString
 import khoury.reactConsole
 import khoury.runEnabledTests
 import khoury.testSame
+import khoury.isAnInteger
 
 
 // Since working on part 1 of the project, you've learned many
@@ -209,12 +210,6 @@ fun testReadCardsFile() {
 // Deck design
 // -----------------------------------------------------------------
 
-// If you think about it, once a deck has been selected, our study
-// application doesn't need much information about cards to work...
-// in fact, it doesn't even need the concept of a card. Consider
-// the following:
-//
-
 // The deck is either exhausted,
 // showing the question, or
 // showing the answer
@@ -249,30 +244,6 @@ interface IDeck {
     fun next(correct: Boolean): IDeck
 }
 
-// This contract of operations will allow our study application to
-// work with a variety of sources, including lists and even code
-// that never explicitly stores cards!
-//
-// (For a similar problem, see Homework 6, Problem 3, TODO 2,
-// where you implemented stateful classes to integrate with an
-// object-oriented reactConsole.)
-//
-
-// TODO 1/2: Design TFCListDeck to implement the IDeck interface
-//           for a supplied list of tagged flash cards. For this
-//           problem your class must have *no* mutable state and
-//           all member data should be private.
-//
-//           When testing, make sure to test the behavior of all
-//           the member functions of the interface in a variety
-//           of situations.
-//
-//           Hint: using default arguments can make your class
-//                 easier to create initially, see...
-//
-//           kotlinlang.org/docs/functions.html#default-arguments
-//
-
 class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckState: DeckState): IDeck{
 
     override fun getState(): DeckState =  deckState
@@ -305,20 +276,157 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
     }
 }
 
-// TODO 2/2: Now design PerfectSquaresDeck to implement the IDeck
-//           interface. You are *not* allowed to generate any
-//           flash cards, nor have mutable state; the goal is to
-//           act as though it had a list produced by the
-//           perfectSquares function in part 1 of the project,
-//           but without ever having to generate all those cards!
-//           Again, as is generally good practice, keep all your
-//           member data private!
-//
-//           Hint: you will still need to keep track of the
-//                 *sequence* of upcoming numbers (particularly
-//                 as some may get cycled back due to incorrect
-//                 responses).
-//
+//FIND OUT HOW TO TEST NEXT AND FLIP 
+@EnabledTest
+fun testTFCListDeck(){
+    testSame(
+        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).getState(),
+        DeckState.QUESTION,
+        "deck QUESTION"
+    )
+
+    testSame(
+        TFCListDeck(listOf(t1,t2,t3), DeckState.ANSWER).getState(),
+        DeckState.ANSWER,
+        "deck ANSWER"
+    )
+
+    testSame(
+        TFCListDeck(listOf(t1,t2,t3), DeckState.EXHAUSTED).getState(),
+        DeckState.EXHAUSTED,
+        "deck EXHAUSTED"
+    )
+
+    testSame(
+        TFCListDeck(listOf(t1), DeckState.QUESTION).getText(),
+        "Hi",
+        "text QUESTION"
+    )
+
+    testSame(
+        TFCListDeck(listOf(t1), DeckState.ANSWER).getText(),
+        "Bye",
+        "text ANSWER"
+    )
+    
+    testSame(
+        TFCListDeck(listOf(t1,t2,t3), DeckState.EXHAUSTED).getText(),
+        null,
+        "text EXHAUSTED"
+    )
+
+    testSame(
+        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).getSize(),
+        3,
+        "get Size"
+    )
+}
+
+class PerfectSquaresDeck(private val start: Int, private val max: Int, private val deckState: DeckState): IDeck {
+    private var incorrect = emptyList<Int>()
+
+    override fun getState(): DeckState = deckState
+
+    override fun getText(): String?{
+        if(start >= max){
+            return when(deckState){
+            DeckState.QUESTION -> "$incorrect[0]^2 = ?"
+            DeckState.ANSWER -> "${incorrect[0]*incorrect[0]}"
+            DeckState.EXHAUSTED -> null
+            } 
+        } 
+        return when(deckState){
+            DeckState.QUESTION -> "$start^2 = ?"
+            DeckState.ANSWER -> "${start*start}"
+            DeckState.EXHAUSTED -> null
+        } 
+    }
+
+    override fun getSize(): Int = max
+
+    override fun flip(): IDeck{
+        if(start >= max+1 && incorrect.isEmpty())
+            return PerfectSquaresDeck(start, max, DeckState.EXHAUSTED)
+        else if(start >= max+1)
+            return when(deckState){
+                DeckState.QUESTION -> PerfectSquaresDeck(start, max, DeckState.ANSWER)
+                DeckState.ANSWER -> PerfectSquaresDeck(start, max, DeckState.QUESTION).also {incorrect.drop(1)}
+                else -> this
+            }
+        return when(deckState){
+            DeckState.QUESTION -> PerfectSquaresDeck(start, max, DeckState.ANSWER)
+            DeckState.ANSWER -> PerfectSquaresDeck(start+1, max, DeckState.QUESTION)
+            else -> this
+        }
+    }
+
+    override fun next(correct: Boolean): IDeck{
+        if(correct)
+            return PerfectSquaresDeck(start, max, DeckState.QUESTION)
+        else
+            return PerfectSquaresDeck(start, max, DeckState.QUESTION).also { incorrect = incorrect + start }
+            
+    }
+}
+
+@EnabledTest
+fun testPerfectSquaresDeck(){
+    testSame(
+        PerfectSquaresDeck(0, 5, DeckState.QUESTION).getState(),
+        DeckState.QUESTION,
+        "deck QUESTION"
+    )
+
+    testSame(
+        PerfectSquaresDeck(0, 5, DeckState.ANSWER).getState(),
+        DeckState.ANSWER,
+        "deck ANSWER"
+    )
+
+    testSame(
+        PerfectSquaresDeck(0, 5, DeckState.EXHAUSTED).getState(),
+        DeckState.EXHAUSTED,
+        "deck EXHAUSTED"
+    )
+
+    testSame(
+        PerfectSquaresDeck(0, 5, DeckState.QUESTION).getText(),
+        "0^2 = ?",
+        "text QUESTION"
+    )
+
+    testSame(
+        PerfectSquaresDeck(0, 5, DeckState.ANSWER).getText(),
+        "0",
+        "text ANSWER"
+    )
+
+     testSame(
+        PerfectSquaresDeck(5, 5, DeckState.EXHAUSTED).getText(),
+        null,
+        "text EXHAUSTED"
+    )
+
+    testSame(
+        PerfectSquaresDeck(0, 5, DeckState.QUESTION).flip().flip().getText(),
+        "1^2 = ?",
+        "next Question"
+    )
+
+    testSame(
+        PerfectSquaresDeck(0, 5, DeckState.ANSWER).flip().flip().getText(),
+        "1",
+        "next Answer"
+    )
+
+    testSame(
+        PerfectSquaresDeck(3, 5, DeckState.ANSWER).next(false).next(true).next(true).getText(),
+        "3^2 = ?",
+        "incorrect"
+    )
+}
+
+
 
 // -----------------------------------------------------------------
 // Menu design
@@ -382,16 +490,16 @@ data class NamedMenuOption<T>(val option: T, val name: String) : IMenuOption {
 //             completed.
 //
 
-fun <T>choicesToText(lines: List<T>): String {
+fun <T> choicesToText(lines: List<T>): String {
     fun initFunc(i: Int): String {
-        if (i < lines.size) {
-            return "" + (i + 1) + ". " + lines[i]
+        return if (i < lines.size) {
+            "${i + 1}. ${lines[i]}"
+        } else {
+            "\n$menuPrompt"
         }
-            return "\n$menuPrompt"
-
     }
 
-    return linesToString(List<String>(lines.size + 1, ::initFunc))
+    return linesToString(List(lines.size + 1, ::initFunc))
 }
 
 // Some useful outputs
@@ -402,63 +510,59 @@ val menuChoicePrefix = "You chose: "
 // Provides an interactive opportunity for the user to choose
 // an option or quit.
 fun <T : IMenuOption> chooseMenuOption(options: List<T>): T? {
-    // your code here!
-
+    //code here!
     fun getOptionName(option: T): String = option.menuTitle()
 
-    fun renderOptions(): String {
-        return choicesToText(options.map(::getOptionName))
+    fun renderOptions(l: List<T>): String {
+        return choicesToText(l.map(::getOptionName))
     }
 
     // gets the valid integer and returns it if it is valid
-    fun keepIfValid(
-        ip: String,
-    ): Int {
+    fun keepIfValid(ip: String): Int {
+        if(!isAnInteger(ip))
+            return options.size+1
         val choice = ip.toInt() - 1
-        if (choice in 0..options.size) {
-            return choice
-        } else {
-            return -1
-        }
+
+        return if (choice in 0 until options.size) 
+            choice
+        else if(choice == -1)
+            -1
+        else 
+            -2
+        
     }
 
-    fun transitionOptionChoice(
-        ignoredState: Int,
-        kbInput: String,
-    ): Int {
+    fun transitionOptionChoice(ignoredState: Int, kbInput: String): Int {
         return keepIfValid(kbInput)
     }
 
     // checks if index is in options
     fun validChoiceEntered(state: Int): Boolean {
-        return state in 0..options.size
+        return if (state == -1) true else state in 0 until options.size
     }
 
-    // the prints out the choice the user selected
-    fun choiceAnnouncement(choice: String): String {
-        if(choice=="0")
-            return menuQuit
-
-        return "$menuChoicePrefix $choice"
-    }
-
-     // announces the choice
+    // announces the choice
     fun renderChoice(state: Int): String {
-        return choiceAnnouncement(getOptionName(options[state]))
+        return if (state == -1) {
+            menuQuit
+        } else {
+            "$menuChoicePrefix${getOptionName(options[state])}"
+        }
     }
 
-
-    // - call reactConsole (with appropriate handlers)
-    // - return the selected option (or null for quit)
-    return reactConsole(
-        initialState = null,
-        stateToText = ::renderOptions,
+    // call reactConsole (with appropriate handlers)
+    // return the selected option (or null for quit)
+    val a = reactConsole(
+        initialState = -2,
+        stateToText = { renderOptions(options) },
         nextState = ::transitionOptionChoice,
         isTerminalState = ::validChoiceEntered,
-        terminalStateToText = ::renderChoice,
+        terminalStateToText = ::renderChoice
     )
 
+    return if (a == -1) null else options[a]
 }
+
 
 @EnabledTest
 fun testChooseMenuOption() {
