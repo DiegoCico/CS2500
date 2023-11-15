@@ -12,70 +12,6 @@ import khoury.runEnabledTests
 import khoury.testSame
 import khoury.isAnInteger
 
-
-// Since working on part 1 of the project, you've learned many
-// approaches that will allow us to improve both the design of
-// data/functions, as well as add new functionality!
-//
-// == Data/Function Design ==
-// - You'll enhance each flash card to support an arbitrary
-//   number of "tags" (i.e., string labels).
-// - You'll generalize the meaning of a deck, such as to be
-//   agnostic as to the very meaning of cards (and thus
-//   support a wider variety of decks).
-// - You'll enhance the menu system to be re-usable, as
-//   well as to support quitting (i.e., leave without forcing a
-//   selection).
-//
-// == Application Features ==
-// - You'll implement a second method for interpreting
-//   self-reported correctness of a card, this time using
-//   some machine learning (ML) to process natural language (NLP);
-//   the user will be able to select which method to use (since
-//   both methods have their tradeoffs!).
-// - When a user doesn't get a card correct (via self-report),
-//   that card is placed at the back of the deck; thus, a deck
-//   is only completed when a user gets all cards correct.
-// - You'll provide deck options that are a subset of cards
-//   containing a particular tag (e.g., all "hard" cards, or
-//   those in the topic of "science").
-// - Once the program is run, the user will be able to study
-//   as many decks as they wish, selecting subsequent decks
-//   from the menu until they quit.
-
-// Of course, we'll design this program step-by-step :)
-
-// When designing this enhanced project, you are welcome to draw
-// upon your project part 1, our sample solutions (for part 1, and
-// any homework), and/or lecture notes as you see fit & helpful.
-
-// Lastly, here are a few overall project requirements...
-// - Now that mutation has been covered, you may use it (unless
-//   otherwise stated in the instructions); however, your usage
-//   will be evaluated based upon the guidelines from class.
-// - As included in the instructions, all interactive parts of
-//   this program MUST make effective use of the reactConsole
-//   framework.
-// - Staying consistent with our Style Guide...
-//   * All functions must have:
-//     a) a preceding comment specifying what it does
-//     b) an associated @EnabledTest function with sufficient
-//        tests using testSame
-//   * All data must have:
-//     a) a preceding comment specifying what it represents
-//     b) associated representative examples
-//     c) for classes with member functions, an associated
-//        @EnabledTest function with sufficient tests for all
-//        the member functions of the class
-// - You will be evaluated on a number of criteria, including...
-//   * Adherence to instructions and the Style Guide
-//   * Correctly producing the functionality of the program
-//   * Design decisions that include choice of tests, appropriate
-//     application of programming approaches (e.g., sequence
-//     abstractions, recursion, mutation), and task/type-driven
-//     decomposition of functions.
-//
-
 // -----------------------------------------------------------------
 // Flash Card data design
 // (Hint: see Homework 5, Problem 3)
@@ -99,6 +35,7 @@ data class TaggedFlashCard(val front: String, val back: String, val tag: List<St
     }
 }
 
+// create 3 different tagged flash card
 val t1 = TaggedFlashCard("Hi", "Bye", listOf("greetings", "leaving", "human-like"))
 val t2 = TaggedFlashCard("1+1", "2", listOf("Math", "Addition", "easy"))
 val t3 = TaggedFlashCard("What class is this", "Coding", listOf("coding", "FUNDIES", "easy-hard"))
@@ -244,10 +181,14 @@ interface IDeck {
     fun next(correct: Boolean): IDeck
 }
 
+// creates a class that takes in a list of tages and a starting deck state
+// follows the inheritate IDeck interface
 class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckState: DeckState): IDeck{
 
+    // get the current state
     override fun getState(): DeckState =  deckState
 
+    // return the text depending on the state
     override fun getText(): String? {
         return when(deckState){
             DeckState.QUESTION -> cards[0].front
@@ -256,8 +197,10 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
         }
     } 
 
+    // get the size of the list
     override fun getSize(): Int =  cards.size
 
+    // depending on the state it calls TFCListDeck, again and it drops
     override fun flip(): IDeck{
         if(cards.isEmpty())
             return TFCListDeck(cards,DeckState.EXHAUSTED)
@@ -268,6 +211,7 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
         }
     }
 
+    // checks if the answer is correct and if it isnt it adds to the list
     override fun next(correct: Boolean): IDeck{
         if(correct)
             return TFCListDeck(cards, deckState)
@@ -276,7 +220,6 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
     }
 }
 
-//FIND OUT HOW TO TEST NEXT AND FLIP 
 @EnabledTest
 fun testTFCListDeck(){
     testSame(
@@ -320,13 +263,24 @@ fun testTFCListDeck(){
         3,
         "get Size"
     )
+
+    testSame(
+        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).next(true).next(false).next(true).getText(),
+        "Hi",
+        "incorrect"
+    )
 }
 
+// creates a class that takes in the starting and ending int, as well as the DeckState
 class PerfectSquaresDeck(private val start: Int, private val max: Int, private val deckState: DeckState): IDeck {
+    // creates a list for the incorrect answers
     private var incorrect = emptyList<Int>()
 
+    // returns the deckstate
     override fun getState(): DeckState = deckState
 
+    // checks if it has gone through the whole start - max, if it hasent if keeps going
+    // afterwards it goes through the incorrect list to the answers that are incorrect
     override fun getText(): String?{
         if(start >= max){
             return when(deckState){
@@ -342,8 +296,12 @@ class PerfectSquaresDeck(private val start: Int, private val max: Int, private v
         } 
     }
 
+    // gets the max 
     override fun getSize(): Int = max
 
+    // checks if there is no incorrect and it has reached the max then deck is exhausted
+    // if not it goes throught the list
+    // otherwise it keeps going through the start-max list
     override fun flip(): IDeck{
         if(start >= max+1 && incorrect.isEmpty())
             return PerfectSquaresDeck(start, max, DeckState.EXHAUSTED)
@@ -360,6 +318,7 @@ class PerfectSquaresDeck(private val start: Int, private val max: Int, private v
         }
     }
 
+    // if it is correct it just ignores otherwise it adds to the incorrect list
     override fun next(correct: Boolean): IDeck{
         if(correct)
             return PerfectSquaresDeck(start, max, DeckState.QUESTION)
@@ -432,64 +391,18 @@ fun testPerfectSquaresDeck(){
 // Menu design
 // -----------------------------------------------------------------
 
-// The chooseOption function in part 1 of the project was good, but
-// let's see what we can do to improve upon it in two core ways...
-
-// a) Part 1 allowed you to select from amongst decks, which means
-//    you'd have to copy-paste if you wanted to have a menu of
-//    other data (such as files, or months of the year); let's
-//    make the function agnostic as to the type of the list items
-//    being selected.
-// b) Part 1 didn't allow for the possibility of not selecting an
-//    option; let's add a quit feature!
-//
-// To help with (a), consider the following interface, which
-// requires that a menu option be able to return a textual
-// representation (that is then displayed in the menu!)...
-//
-
 // the only required capability for a menu option
 // is to be able to render a title
 interface IMenuOption {
     fun menuTitle(): String
 }
 
-// as well as the following general implementation (great for
-// tests & examples), which satisfies the contract via pairing
-// a value (of any type) with a name...
-
 // a menu option with a single value and name
 data class NamedMenuOption<T>(val option: T, val name: String) : IMenuOption {
     override fun menuTitle(): String = name
 }
 
-// individual examples, as well as a list
-// (an example for a list of menu options!)
-
-
-// TODO 1/1: Finish designing the program chooseMenuOption that
-//           takes a list (assumed to be non-empty) of any type
-//           (as long as it implements the IMenuOption interface),
-//           produces a corresponding numbered menu (1-# of list
-//           items, each showing its menuTitle), and returns the
-//           list item corresponding to the number entered (or null
-//           if 0 was entered to indicate a desire to quit without
-//           choosing an option). Keep displaying the menu until a
-//           valid menu selection (or quitting) is indicated.
-//
-//           Hints:
-//           - You'll find the code from chooseOption (in part 1)
-//             to be a *very* good starting point.
-//           - Homework 5, Problem 4, has a very similar interface,
-//             which can give you an idea for how you'd use it.
-//           - To help you get started, you have some examples
-//             above and prompts below; a "stub" for the
-//             chooseMenuOption function (to help with the
-//             signature and overall structure); and a set of
-//             tests that should pass once the program has been
-//             completed.
-//
-
+// puts the options in the format we were given
 fun <T> choicesToText(lines: List<T>): String {
     fun initFunc(i: Int): String {
         return if (i < lines.size) {
@@ -511,13 +424,18 @@ val menuChoicePrefix = "You chose: "
 // an option or quit.
 fun <T : IMenuOption> chooseMenuOption(options: List<T>): T? {
     //code here!
+    // gets the name of the menuTitle
     fun getOptionName(option: T): String = option.menuTitle()
 
+    // calls 2 helper functions to help format it the way we are supposed to format
     fun renderOptions(l: List<T>): String {
         return choicesToText(l.map(::getOptionName))
     }
 
-    // gets the valid integer and returns it if it is valid
+    //  gets the string and checks if it is a int
+    // if it is a string it checks if it is in the list
+    // if it is not it returns -1
+    // if the string is -1 then returns -1
     fun keepIfValid(ip: String): Int {
         if(!isAnInteger(ip))
             return options.size+1
@@ -532,6 +450,7 @@ fun <T : IMenuOption> chooseMenuOption(options: List<T>): T? {
         
     }
 
+    // calls a helper function that checks if it is a valid answers then returns int
     fun transitionOptionChoice(ignoredState: Int, kbInput: String): Int {
         return keepIfValid(kbInput)
     }
