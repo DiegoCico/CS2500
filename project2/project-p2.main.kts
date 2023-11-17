@@ -214,7 +214,7 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
     // checks if the answer is correct and if it isnt it adds to the list
     override fun next(correct: Boolean): IDeck{
         if(correct)
-            return TFCListDeck(cards, deckState)
+            return TFCListDeck(cards.drop(1), DeckState.QUESTION)
         else
             return TFCListDeck(cards + cards[0], deckState)
     }
@@ -265,8 +265,8 @@ fun testTFCListDeck(){
     )
 
     testSame(
-        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).next(true).next(false).next(true).getText(),
-        "Hi",
+        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).next(true).next(false).next(true).next(true).getText(),
+        "1+1",
         "incorrect"
     )
 }
@@ -300,6 +300,7 @@ class PerfectSquaresDeck(private val start: Int, private val max: Int, private v
     override fun getSize(): Int = max
 
     // checks if there is no incorrect and it has reached the max then deck is exhausted
+    // it uses .also to modify the variable inside of it and drop the ones arelady incorrect
     // if not it goes throught the list
     // otherwise it keeps going through the start-max list
     override fun flip(): IDeck{
@@ -319,6 +320,7 @@ class PerfectSquaresDeck(private val start: Int, private val max: Int, private v
     }
 
     // if it is correct it just ignores otherwise it adds to the incorrect list
+    // uses .also to add the incorrect answers in order
     override fun next(correct: Boolean): IDeck{
         if(correct)
             return PerfectSquaresDeck(start, max, DeckState.QUESTION)
@@ -615,54 +617,54 @@ val datasetYN: List<LabeledExample<String, Boolean>> =
 // this code (including the comments in the tests about when & how
 // the heuristic is predictably getting the answer wrong).
 
-// // Heuristically determines if the supplied string
-// // is positive based upon the first letter being Y
-// fun isPositiveSimple(s: String): Boolean {
-//     return s.uppercase().startsWith("Y")
-// }
+// Heuristically determines if the supplied string
+// is positive based upon the first letter being Y
+fun isPositiveSimple(s: String): Boolean {
+    return s.uppercase().startsWith("Y")
+}
 
-// // tests that an element of the dataset matches
-// // with expectation of its correctness on a
-// // particular classifier
-// fun helpTestElement(
-//     index: Int,
-//     expectedIsCorrect: Boolean,
-//     isPos: PositivityClassifier,
-// ) {
-//     testSame(
-//         isPos(datasetYN[index].example),
-//         when (expectedIsCorrect) {
-//             true -> datasetYN[index].label
-//             false -> !datasetYN[index].label
-//         },
-//         when (expectedIsCorrect) {
-//             true -> datasetYN[index].example
-//             false -> "${ datasetYN[index].example } <- WRONG"
-//         },
-//     )
-// }
+// tests that an element of the dataset matches
+// with expectation of its correctness on a
+// particular classifier
+fun helpTestElement(
+    index: Int,
+    expectedIsCorrect: Boolean,
+    isPos: PositivityClassifier,
+) {
+    testSame(
+        isPos(datasetYN[index].example),
+        when (expectedIsCorrect) {
+            true -> datasetYN[index].label
+            false -> !datasetYN[index].label
+        },
+        when (expectedIsCorrect) {
+            true -> datasetYN[index].example
+            false -> "${ datasetYN[index].example } <- WRONG"
+        },
+    )
+}
 
-// @EnabledTest
-// fun testIsPositiveSimple() {
-//     val classifier = ::isPositiveSimple
+@EnabledTest
+fun testIsPositiveSimple() {
+    val classifier = ::isPositiveSimple
 
-//     // correctly responds with positive
-//     for (i in 0..1) {
-//         helpTestElement(i, true, classifier)
-//     }
+    // correctly responds with positive
+    for (i in 0..1) {
+        helpTestElement(i, true, classifier)
+    }
 
-//     // incorrectly responds with negative
-//     for (i in 2..8) {
-//         helpTestElement(i, false, classifier)
-//     }
+    // incorrectly responds with negative
+    for (i in 2..8) {
+        helpTestElement(i, false, classifier)
+    }
 
-//     // correctly responds with negative, sometimes
-//     // due to luck (i.e., anything not starting
-//     // with the letter Y is assumed negative)
-//     for (i in 9..17) {
-//         helpTestElement(i, true, classifier)
-//     }
-// }
+    // correctly responds with negative, sometimes
+    // due to luck (i.e., anything not starting
+    // with the letter Y is assumed negative)
+    for (i in 9..17) {
+        helpTestElement(i, true, classifier)
+    }
+}
 
 // One approach we *could* take is just to have the computer learn
 // by rote memorization: that is, respond with the labeled answer
@@ -686,50 +688,134 @@ val datasetYN: List<LabeledExample<String, Boolean>> =
 // Now let's build up this classifier, step-by-step :)
 //
 
-// TODO 1/5: When finding closest examples, and majority vote, it
-//           will be helpful to be able to get the "top-k" of a
-//           list by some measure; meaning, a function that can
-//           get the top-3 strings in a list by length, but
-//           equally identify the top-1 (i.e., best) song by
-//           ratings. To help, consider the following definition
-//           of an "evaluation" function: one that takes an input
-//           of some type and associates an output "score" (where
-//           bigger scores are understood to be better):
-
 typealias EvaluationFunction<T> = (T) -> Int
 
-//          Design the function topK that takes a list of
-//          items, k (assumed to be a postive integer), and a
-//          corresponding evaluation function, and then returns
-//          the k items in the list that get the highest score
-//          (if there are ties, you are free to return any of the
-//          winners; if there aren't enough items in the list,
-//          return as many as you can).
-//
-//          Hint: You did this problem in Homework 7, Problem 1
-//                - To simplify, you can avoid the ItemScore type
-//                  by using the built-in `zip` function that you
-//                  implemented in Homework 7, Problem 3.
-//                - Later functions will use topK and assume the
-//                  parameter ordering is as described above (which
-//                  is a small swap from the sample solution).
-//
+// gets the list, function, and k
+// it maps the list into the itemscore and then sorts it in decending
+// maps it again and grabs all the k's
+fun <T> topK(
+    items: List<T>,
+    eF: EvaluationFunction<T>,
+    k: Int,
+): List<T> {
+    if (items.isEmpty()) {
+        return emptyList()
+    }
 
-// TODO 2/5: Great! Now we have to answer the question from before:
-//           what does it mean for two strings to be "close"?
-//           There are actually multiple reasonable ways of
-//           capturing such a distance, one of which is the
-//           Levenshtein Distance, which describes the minimum
-//           number of single-character changes (e.g., adding a
-//           character, removing one, or substituting) required to
-//           change one sequence into another
-//           (https://en.wikipedia.org/wiki/Levenshtein_distance).
-//           Your task is to design the function
-//           levenshteinDistance that computes this distance for
-//           two supplied strings.
-//
-//           Hint: Homework 7, Problem 2 :)
-//
+    fun initFunc(s: T): Pair<T, Int> {
+        return Pair(s, eF(s))
+    }
+
+    val scoreList = items.map(::initFunc)
+    val sortList = scoreList.sortedByDescending { it.second }
+
+    return sortList.take(k).map { it.first }
+}
+
+@EnabledTest
+fun testTopK() {
+    testSame(
+        topK(listOf("Hi", "Bye", "See Yea", "Night"), { s -> s.length }, 3),
+        listOf("See Yea", "Night", "Bye"),
+        "longest String",
+    )
+
+    testSame(
+        topK(listOf(1, 6, 3, 9, 7, 3, 5), { n -> n }, 3),
+        listOf(9, 7, 6),
+        "Biggest Number",
+    )
+
+    testSame(
+        topK(listOf("Hi", "Bye", "See Yea", "Night"), { s -> s.length * -1 }, 2),
+        listOf("Hi", "Bye"),
+        "Shortest String",
+    )
+
+    testSame(
+        topK(listOf(1, 6, 3, 9, 7, 3, 5), { n -> n * -1 }, 2),
+        listOf(1, 3),
+        "Smallest Number",
+    )
+
+    testSame(
+        topK(emptyList<Int>(), { s -> s }, 5),
+        listOf(),
+        "empty/INT",
+    )
+
+    testSame(
+        topK(emptyList<String>(), { s -> s.length }, 5),
+        listOf(),
+        "empty/STRING",
+    )
+}
+
+fun levenshteinDistance(
+    str1: String,
+    str2: String,
+): Int {
+    return levenshteinHelper(str1, str2, str1.length, str2.length)
+}
+
+fun levenshteinHelper(
+    str1: String,
+    str2: String,
+    i: Int,
+    j: Int,
+): Int {
+    if (i == 0) {
+        return j
+    }
+
+    if (j == 0) {
+        return i
+    }
+
+    return if (str1[i - 1] == str2[j - 1]) {
+        levenshteinHelper(str1, str2, i - 1, j - 1)
+    } else {
+        1 +
+            minOf(
+                levenshteinHelper(str1, str2, i - 1, j),
+                levenshteinHelper(str1, str2, i, j - 1),
+                levenshteinHelper(str1, str2, i - 1, j - 1),
+            )
+    }
+}
+
+@EnabledTest
+fun testLevenshteinDistance() {
+    testSame(
+        levenshteinDistance("", "howdy"),
+        5,
+        "'', 'howdy'",
+    )
+
+    testSame(
+        levenshteinDistance("howdy", ""),
+        5,
+        "'howdy', ''",
+    )
+
+    testSame(
+        levenshteinDistance("howdy", "howdy"),
+        0,
+        "'howdy', 'howdy'",
+    )
+
+    testSame(
+        levenshteinDistance("kitten", "sitting"),
+        3,
+        "'kitten', 'sitting'",
+    )
+
+    testSame(
+        levenshteinDistance("sitting", "kitten"),
+        3,
+        "'sitting', 'kitten'",
+    )
+}
 
 // TODO 3/5: Great! Now let's design a "k-Nearest Neighbor"
 //           classifier (you can read online description, such as
