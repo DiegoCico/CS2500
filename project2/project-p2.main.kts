@@ -201,7 +201,7 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
     override fun getSize(): Int =  cards.size
 
     // depending on the state it calls TFCListDeck, again and it drops
-    override fun flip(): IDeck{
+    override fun flip(): TFCListDeck{
         if(cards.isEmpty())
             return TFCListDeck(cards,DeckState.EXHAUSTED)
         return when(deckState){
@@ -212,11 +212,14 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
     }
 
     // checks if the answer is correct and if it isnt it adds to the list
-    override fun next(correct: Boolean): IDeck{
+    override fun next(correct: Boolean): TFCListDeck{
         if(correct)
-            return TFCListDeck(cards.drop(1), DeckState.QUESTION)
+            if(cards.size == 1)
+                return TFCListDeck(cards,DeckState.EXHAUSTED)
+            else
+                return TFCListDeck(cards.drop(1), DeckState.QUESTION)
         else
-            return TFCListDeck(cards + cards[0], deckState)
+            return TFCListDeck(cards.drop(1) + cards[0], DeckState.QUESTION)
     }
 }
 
@@ -265,7 +268,7 @@ fun testTFCListDeck(){
     )
 
     testSame(
-        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).next(true).next(false).next(true).next(true).getText(),
+        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).next(true).next(false).next(true).getText(),
         "1+1",
         "incorrect"
     )
@@ -323,9 +326,11 @@ class PerfectSquaresDeck(private val start: Int, private val max: Int, private v
     // uses .also to add the incorrect answers in order
     override fun next(correct: Boolean): IDeck{
         if(correct)
+            if(start >= max+1 && incorrect.isEmpty())
+                return PerfectSquaresDeck(start, max, DeckState.EXHAUSTED)
             return PerfectSquaresDeck(start, max, DeckState.QUESTION)
-        else
-            return PerfectSquaresDeck(start, max, DeckState.QUESTION).also { incorrect = incorrect + start }
+    
+        return PerfectSquaresDeck(start, max, DeckState.QUESTION).also { incorrect = incorrect + start }
             
     }
 }
@@ -551,34 +556,9 @@ fun testChooseMenuOption() {
 // Machine learning for sentiment analysis
 // -----------------------------------------------------------------
 
-// In part 1 of the project, you designed isPositive as a way to
-// interpret whether a student's self-report was positive or
-// negative; in the world of Machine Learning (a subfield of
-// Artificial Intelligence, or AI), this is an approach to
-// "sentiment analysis" - a problem in Natural Language Processing
-// (NLP) that seeks to analyze text to understand the emotional
-// tone of some text.
-//
-// In this context, what you built was a "binary classifier" of
-// text, meaning it output one of two values according to the input
-// string. In Kotlin we can describe this input-output relationship
-// using the following shortcut...
-
 typealias PositivityClassifier = (String) -> Boolean
 
-// This code simply means we can now use PositivityClassifier
-// anywhere we would have used the type on the right (e.g.,
-// as the type in a function's parameter or return type).
-//
-// Our goal is now to try and use a more sophisticated approach
-// to sentiment analysis - one that learns positivity/negativity
-// based upon a dataset of supplied examples. To represent such a
-// dataset, consider the following type...
-
 data class LabeledExample<E, L>(val example: E, val label: L)
-
-// This associates a "label" (such as positive vs negative, or
-// cat video vs boring) with an example. Here is one such dataset:
 
 val datasetYN: List<LabeledExample<String, Boolean>> =
     listOf(
@@ -603,19 +583,6 @@ val datasetYN: List<LabeledExample<String, Boolean>> =
         LabeledExample("absolutely not", false),
         LabeledExample("false", false),
     )
-
-// FYI: we call this dataset "balanced" since it has an equal
-//      number of examples of the labels (i.e., # true and #false).
-//      Such a balance is *one* tool (of many) when trying to avoid
-//      algorithmic bias (en.wikipedia.org/wiki/Algorithmic_bias).
-
-// Notice that our simple heuristic of the first letter is pretty
-// good according to this dataset, but will make some lucky
-// guesses (e.g., "false") and some actual mistakes (e.g., "true").
-// We have provided below that code, as well as a set of tests that
-// reference our labeled dataset - make sure you understand all of
-// this code (including the comments in the tests about when & how
-// the heuristic is predictably getting the answer wrong).
 
 // Heuristically determines if the supplied string
 // is positive based upon the first letter being Y
@@ -666,86 +633,72 @@ fun testIsPositiveSimple() {
     }
 }
 
-// One approach we *could* take is just to have the computer learn
-// by rote memorization: that is, respond with the labeled answer
-// from the dataset. But what about if the student supplies an
-// input not in this list? The approach we'll try as a way to
-// handle this situation is the following...
-// - If the response is known in the dataset (independent of
-//   upper/lower-case), use the associated label
-// - Otherwise...
-//   Find the 3 "closest" examples and respond with a majority
-//   vote of their associated labels
-//
-// This algorithm will represent our attempt to "generalize"
-// from the dataset; we know we'll always get certain responses
-// correct, and we'll let our dataset inform the response of
-// unknown inputs. As with all approaches based upon machine
-// learning, this approach is likely to make mistakes (even those
-// that we'll find confusing/comical), and so we should be
-// judicious in how we apply the system in the world.
-//
-// Now let's build up this classifier, step-by-step :)
-//
-
 typealias EvaluationFunction<T> = (T) -> Int
 
-// gets the list, function, and k
-// it maps the list into the itemscore and then sorts it in decending
-// maps it again and grabs all the k's
 fun <T> topK(
-    items: List<T>,
-    eF: EvaluationFunction<T>,
+    possibilities: List<T>,
     k: Int,
+    evalFunc: EvaluationFunction<T>,
 ): List<T> {
-    if (items.isEmpty()) {
-        return emptyList()
-    }
+    // associate each item with its score
+    val itemsWithScores =
+        possibilities.map {
+            Pair(
+                it,
+                evalFunc(it),
+            )
+        }
 
-    fun initFunc(s: T): Pair<T, Int> {
-        return Pair(s, eF(s))
-    }
+    // sort by score
+    val sortedByEval =
+        itemsWithScores.sortedByDescending {
+            it.second
+        }
 
-    val scoreList = items.map(::initFunc)
-    val sortList = scoreList.sortedByDescending { it.second }
+    // strip away score
+    val sortedWithoutScores =
+        sortedByEval.map {
+            it.first
+        }
 
-    return sortList.take(k).map { it.first }
+    // get the first-k (i.e., top-k via score)
+    return sortedWithoutScores.take(k)
 }
 
 @EnabledTest
 fun testTopK() {
     testSame(
-        topK(listOf("Hi", "Bye", "See Yea", "Night"), { s -> s.length }, 3),
+        topK(listOf("Hi", "Bye", "See Yea", "Night"), 3,{ s -> s.length }),
         listOf("See Yea", "Night", "Bye"),
         "longest String",
     )
 
     testSame(
-        topK(listOf(1, 6, 3, 9, 7, 3, 5), { n -> n }, 3),
+        topK(listOf(1, 6, 3, 9, 7, 3, 5), 3,{ n -> n }),
         listOf(9, 7, 6),
         "Biggest Number",
     )
 
     testSame(
-        topK(listOf("Hi", "Bye", "See Yea", "Night"), { s -> s.length * -1 }, 2),
+        topK(listOf("Hi", "Bye", "See Yea", "Night"), 2, { s -> s.length * -1 },),
         listOf("Hi", "Bye"),
         "Shortest String",
     )
 
     testSame(
-        topK(listOf(1, 6, 3, 9, 7, 3, 5), { n -> n * -1 }, 2),
+        topK(listOf(1, 6, 3, 9, 7, 3, 5), 2, { n -> n * -1 },),
         listOf(1, 3),
         "Smallest Number",
     )
 
     testSame(
-        topK(emptyList<Int>(), { s -> s }, 5),
+        topK(emptyList<Int>(), 5, { s -> s }),
         listOf(),
         "empty/INT",
     )
 
     testSame(
-        topK(emptyList<String>(), { s -> s.length }, 5),
+        topK(emptyList<String>(),  5, { s -> s.length },),
         listOf(),
         "empty/STRING",
     )
@@ -817,291 +770,349 @@ fun testLevenshteinDistance() {
     )
 }
 
-// TODO 3/5: Great! Now let's design a "k-Nearest Neighbor"
-//           classifier (you can read online description, such as
-//           on Wikipedia, for lots of details & variants, but
-//           we'll give you all the information you need here).
-//
-//           The goal here: given a dataset of labeled examples,
-//           a distance function, and a number k, let the k
-//           closest elements of the dataset "vote" (with their
-//           label) as to what the label of a new element
-//           should be. To be clear, here is a way of describing
-//           a distance function, producing a integer distance
-//           between two elements of a type...
-
 typealias DistanceFunction<T> = (T, T) -> Int
-
-//           Since this method might give an incorrect response,
-//           we'll return not only predicted label, but the number
-//           of "votes" received for that label (out of k)...
 
 data class ResultWithVotes<L>(val label: L, val votes: Int)
 
-//           Your task is to uncomment and then *test* the supplied
-//           nnLabel function (note: you might need to fix up the
-//           ordering of your topK arguments to play nicely with
-//           the code here - you should NOT change this function).
-//           You'll find guiding comments to help.
-//
+// uses k-nearest-neighbor (kNN) to predict the label
+// for a supplied example given a labeled dataset
+// and distance function
+fun <E, L> nnLabel(
+    queryExample: E,
+    dataset: List<LabeledExample<E, L>>,
+    distFunc: DistanceFunction<E>,
+    k: Int,
+): ResultWithVotes<L> {
+    // 1. Use topK to find the k-closest dataset elements:
+    //    finding the elements whose negated distance is the
+    //    greatest is the same as finding those that are closest.
+    val closestK =
+        topK(dataset, k) {
+            -distFunc(queryExample, it.example)
+        }
 
-// // uses k-nearest-neighbor (kNN) to predict the label
-// // for a supplied example given a labeled dataset
-// // and distance function
-// fun <E, L> nnLabel(
-//     queryExample: E,
-//     dataset: List<LabeledExample<E, L>>,
-//     distFunc: DistanceFunction<E>,
-//     k: Int,
-// ): ResultWithVotes<L> {
-//     // 1. Use topK to find the k-closest dataset elements:
-//     //    finding the elements whose negated distance is the
-//     //    greatest is the same as finding those that are closest.
-//     val closestK =
-//         topK(dataset, k) {
-//             -distFunc(queryExample, it.example)
-//         }
+    // 2. Discard the examples, we only care about their labels
+    val closestKLabels = closestK.map { it.label }
 
-//     // 2. Discard the examples, we only care about their labels
-//     val closestKLabels = closestK.map { it.label }
+    // 3. For each distinct label, count up how many time it
+    //    showed up in step #2
+    //    (Note: once we know the Map type, there are WAY simpler
+    //           ways to do this!)
+    val labelsWithCounts =
+        closestKLabels.distinct().map {
+                label ->
+            Pair(
+                // first = label
+                label,
+                // second = number of votes
+                closestKLabels.filter({ it == label }).size,
+            )
+        }
 
-//     // 3. For each distinct label, count up how many time it
-//     //    showed up in step #2
-//     //    (Note: once we know the Map type, there are WAY simpler
-//     //           ways to do this!)
-//     val labelsWithCounts =
-//         closestKLabels.distinct().map {
-//                 label ->
-//             Pair(
-//                 // first = label
-//                 label,
-//                 // second = number of votes
-//                 closestKLabels.filter({ it == label }).size,
-//             )
-//         }
+    // 4. Use topK to get the label with the greatest count
+    val topLabelWithCount = topK(labelsWithCounts, 1, { it.second })[0]
 
-//     // 4. Use topK to get the label with the greatest count
-//     val topLabelWithCount = topK(labelsWithCounts, 1, { it.second })[0]
+    // 5. Return both the label and the number of votes (of k)
+    return ResultWithVotes(
+        topLabelWithCount.first,
+        topLabelWithCount.second,
+    )
+}
 
-//     // 5. Return both the label and the number of votes (of k)
-//     return ResultWithVotes(
-//         topLabelWithCount.first,
-//         topLabelWithCount.second,
-//     )
-// }
+@EnabledTest
+fun testNNLabel() {
 
-// @EnabledTest
-// fun testNNLabel() {
-//     // don't change this dataset:
-//     // think of them as points on a line...
-//     // (with ? referring to the example below)
-//     //
-//     //       a   a       ?       b           b
-//     // |--- --- --- --- --- --- --- --- --- ---|
-//     //   1   2   3   4   5   6   7   8   9  10
-//     val dataset =
-//         listOf(
-//             LabeledExample(2, "a"),
-//             LabeledExample(3, "a"),
-//             LabeledExample(7, "b"),
-//             LabeledExample(10, "b"),
-//         )
+    //       a   a       ?       b           b
+    // |--- --- --- --- --- --- --- --- --- ---|
+    //   1   2   3   4   5   6   7   8   9  10
+    val dataset =
+        listOf(
+            LabeledExample(2, "a"),
+            LabeledExample(3, "a"),
+            LabeledExample(7, "b"),
+            LabeledExample(10, "b"),
+        )
 
-//     // A simple distance: just the absolute value
-//     fun myAbsVal(
-//         a: Int,
-//         b: Int,
-//     ): Int {
-//         val diff = a - b
+    // A simple distance: just the absolute value
+    fun myAbsVal(
+        a: Int,
+        b: Int,
+    ): Int {
+        val diff = a - b
 
-//         return when (diff >= 0) {
-//             true -> diff
-//             false -> -diff
-//         }
-//     }
+        return when (diff >= 0) {
+            true -> diff
+            false -> -diff
+        }
+    }
 
-//     // TODO: to demonstrate that you understand how kNN is
-//     //       supposed to work (and what the supplied code returns),
-//     //       you are going to write tests here for a selection of
-//     //       cases that use the dataset and distance function above.
-//     //
-//     //       To help you get started, consider testing for point 5,
-//     //       with k=3:
-//     //       a) All the points with their distances are...
-//     //          a = |2 - 5| = 3
-//     //          a = |3 - 5| = 3
-//     //          b = |7 - 5| = 2
-//     //          b = |10 - 5| = 5
-//     //       b) SO, the labels of the three closest are...
-//     //          a (2 votes)
-//     //          b (1 vote)
-//     //       c) SO, kNN in this situation would predict the label
-//     //          for this point to be "a", with confidence 2/3 (medium)
-//     //
-//     //       We capture this test as...
-//     //
+    testSame(
+        nnLabel(5, dataset, ::myAbsVal, k = 3),
+        ResultWithVotes("a", 2),
+        "NN: 5->a, 2/3",
+    )
 
-//     testSame(
-//         nnLabel(5, dataset, ::myAbsVal, k = 3),
-//         ResultWithVotes("a", 2),
-//         "NN: 5->a, 2/3",
-//         // medium confidence
-//     )
+    testSame(
+        nnLabel(1, dataset, ::myAbsVal, k = 1),
+        ResultWithVotes("a", 1),
+        "NN: 1->a, 1/3",
+    )
 
-//     //       Now your task is to write tests for the following
-//     //       additional cases...
-//     //       1. 1 (k=1)
-//     //       2. 1 (k=2)
-//     //       3. 10 (k=1)
-//     //       4. 10 (k=2)
-// }
+    testSame(
+        nnLabel(1, dataset, ::myAbsVal, k = 2),
+        ResultWithVotes("a", 2),
+        "NN: 1->a, 2/3",
+    )
 
-// TODO 4/5: Ok - now it's time to put some pieces together!!
-//           Finish designing the function yesNoClassifier below -
-//           you've been provided with guiding steps, as well as
-//           tests that should pass, including those that are
-//           incorrect (with lots of confidence!).
-//
+    testSame(
+        nnLabel(10, dataset, ::myAbsVal, k = 1),
+        ResultWithVotes("b", 1),
+        "NN: 10->b, 1/3",
+    )
+
+    testSame(
+        nnLabel(10, dataset, ::myAbsVal, k = 2),
+        ResultWithVotes("b", 2),
+        "NN: 10->b, 2/3",
+    )
+}
 
 // we'll generally use k=3 in our classifier
 val classifierK = 3
 
-// fun yesNoClassifier(s: String): ResultWithVotes<Boolean> {
-//     // 1. Convert the input to lowercase
-//     //    (since) the data set is all lowercase
+fun yesNoClassifier(s: String): ResultWithVotes<Boolean> {
+    // 1. Convert the input to lowercase
+    //    (since) the data set is all lowercase
+    var lowerS = s.lowercase()
 
-//     // 2. Check to see if the lower-case input
-//     //    shows up exactly within the dataset
-//     //    (you can assume there are no duplicates)
+    // 2. Check to see if the lower-case input
+    //    shows up exactly within the dataset
+    //    (you can assume there are no duplicates)
+    for(i in datasetYN.indices)
+        if(datasetYN[i].example == lowerS)
+            return ResultWithVotes(datasetYN[i].label, classifierK)
+    
 
-//     // 3. If the input was found, simply return its label with 100%
-//     //    confidence (3/3); otherwise, return the result of
-//     //    performing a 3-NN classification using the dataset and
-//     //    Levenshtein distance metric.
-// }
+    // 3. If the input was found, simply return its label with 100%
+    //    confidence (3/3); otherwise, return the result of
+    //    performing a 3-NN classification using the dataset and
+    //    Levenshtein distance metric.
 
-// @EnabledTest
-// fun testYesNoClassifier() {
-//     testSame(
-//         yesNoClassifier("YES"),
-//         ResultWithVotes(true, 3),
-//         "YES: 3/3",
-//     )
+    return nnLabel(lowerS, datasetYN, ::levenshteinDistance, classifierK)
+}
 
-//     testSame(
-//         yesNoClassifier("no"),
-//         ResultWithVotes(false, 3),
-//         "no: 3/3",
-//     )
+@EnabledTest
+fun testYesNoClassifier() {
+    testSame(
+        yesNoClassifier("YES"),
+        ResultWithVotes(true, 3),
+        "YES: 3/3",
+    )
 
-//     testSame(
-//         yesNoClassifier("nadda"),
-//         ResultWithVotes(false, 2),
-//         "nadda: 2/3",
-//     ) // pretty good ML!
+    testSame(
+        yesNoClassifier("no"),
+        ResultWithVotes(false, 3),
+        "no: 3/3",
+    )
 
-//     testSame(
-//         yesNoClassifier("yerp"),
-//         ResultWithVotes(true, 3),
-//         "yerp: 3/3",
-//     ) // pretty good ML!
+    testSame(
+        yesNoClassifier("nadda"),
+        ResultWithVotes(false, 2),
+        "nadda: 2/3",
+    ) // pretty good ML!
 
-//     testSame(
-//         yesNoClassifier("ouch"),
-//         ResultWithVotes(true, 3),
-//         "ouch: 3/3",
-//     ) // seems very confident in this wrong answer...
+    testSame(
+        yesNoClassifier("yerp"),
+        ResultWithVotes(true, 3),
+        "yerp: 3/3",
+    ) // pretty good ML!
 
-//     testSame(
-//         yesNoClassifier("now"),
-//         ResultWithVotes(false, 3),
-//         "now 3/3",
-//     ) // seems very confident, given the input doesn't make sense?
-// }
+    testSame(
+        yesNoClassifier("ouch"),
+        ResultWithVotes(true, 3),
+        "ouch: 3/3",
+    ) // seems very confident in this wrong answer...
 
-// TODO 5/5: Now that you have a sense of how this approach works,
-//           including some of the (confident) mistakes it can make,
-//           uncomment the following lines to have a classifier
-//           (that we could use side-by-side with our heuristic).
+    testSame(
+        yesNoClassifier("now"),
+        ResultWithVotes(false, 3),
+        "now 3/3",
+    ) // seems very confident, given the input doesn't make sense?
+}
 
-// fun isPositiveML(s: String): Boolean = yesNoClassifier(s).label
+fun isPositiveML(s: String): Boolean = yesNoClassifier(s).label
 
-// @EnabledTest
-// fun testIsPositiveML() {
-//     // correctly responds with positive (rote memorization)
-//     for (i in 0..8) {
-//         helpTestElement(i, true, ::isPositiveML)
-//     }
+@EnabledTest
+fun testIsPositiveML() {
+    // correctly responds with positive (rote memorization)
+    for (i in 0..8) {
+        helpTestElement(i, true, ::isPositiveML)
+    }
 
-//     // correctly responds with negative (rote memorization)
-//     for (i in 9..17) {
-//         helpTestElement(i, true, ::isPositiveML)
-//     }
-// }
+    // correctly responds with negative (rote memorization)
+    for (i in 9..17) {
+        helpTestElement(i, true, ::isPositiveML)
+    }
+}
 
 // -----------------------------------------------------------------
 // Final app!
 // -----------------------------------------------------------------
 
-// Whew! You've done a lot :)
-//
-// Now let's put it together and study!!
-//
-
-// TODO 1/2: Design the program studyDeck2 that uses the
-//           reactConsole function to study through a
-//           supplied deck using a supplied classifier to
-//           interpret self-reported correctness.
-//
-//           The program should produce the following data:
-//
-
-// represents the result of a study session:
-// how many questions were originally in the deck,
-// how many total attempts were required to get
-// them all correct!
-data class StudyDeckResult(val numQuestions: Int, val numAttempts: Int)
-
-//           Look back to the process you followed for studyDeck in
-//           part 1 of the project: you'll first want to design a
-//           state type, then build the main reactConsole function,
-//           and finally design all the handlers (and don't forget
-//           to test ALL functions, including the program!).
-//
-//           In case it helps, here's a trace of a short example
-//           study session (using the simple classifier), with
-//           notes indicated by "<--"
-//
-//           What is the capital of Massachusetts, USA?
-//           Think of the result? Press enter to continue
-//                               <-- user just pressed enter, so ""
-//           Boston
-//           Correct? (Y)es/(N)o
-//           yup
-//           What is the capital of California, USA?
-//           Think of the result? Press enter to continue
-//
-//           Sacramento
-//           Correct? (Y)es/(N)o
-//           no :(                     <-- cycles Cali to the back!
-//           What is the capital of the United Kingdom?
-//           Think of the result? Press enter to continue
-//
-//           London
-//           Correct? (Y)es/(N)o
-//           YES!
-//           What is the capital of California, USA?
-//           Think of the result? Press enter to continue
-//
-//           Sacramento
-//           Correct? (Y)es/(N)o
-//           yessir!
-//           Questions: 3, Attempts: 4 <-- useful summary of return
-//
-
 // Some useful prompts
 val studyThink = "Think of the result? Press enter to continue"
 val studyCheck = "Correct? (Y)es/(N)o"
+
+data class StudyDeckResult(val numQuestions: Int, val numAttempts: Int)
+
+data class StudyState(val cards: IDeck, val result: StudyDeckResult)
+
+fun studyStateToText(state: StudyState): String {
+    return when(state.cards.getState()){
+        DeckState.QUESTION -> ""+state.cards.getText() + "\n$studyThink"
+        DeckState.ANSWER -> ""+state.cards.getText() + "\n$studyCheck"
+        DeckState.EXHAUSTED -> ""+state.cards.getText()
+    }
+}
+
+@EnabledTest
+fun testStudyStateToText(){
+    testSame(
+        studyStateToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.QUESTION), StudyDeckResult(5,0))),
+        "Hi\n$studyThink",
+        "QUESTION"
+    )
+
+    testSame(
+        studyStateToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.ANSWER), StudyDeckResult(5,0))),
+        "Bye\n$studyCheck",
+        "ANSWER"
+    )
+
+    testSame(
+        studyStateToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.EXHAUSTED), StudyDeckResult(5,0))),
+        "null",
+        "EXHAUSTED"
+    )
+}
+
+fun studyAnswerHelper(s: String): Boolean {
+    return yesNoClassifier(s).label
+}
+
+fun studyNextState(state: StudyState, userInput: String): StudyState {
+    val questions = state.result.numQuestions
+    val attempt = state.result.numAttempts
+    return when(state.cards.getState()){
+        DeckState.QUESTION -> StudyState(state.cards.flip(), StudyDeckResult(questions, attempt))
+        DeckState.ANSWER -> StudyState(state.cards.next(studyAnswerHelper(userInput)), StudyDeckResult(questions, attempt+1))
+        DeckState.EXHAUSTED -> StudyState(state.cards, StudyDeckResult(questions, attempt))
+    }
+}
+
+// @EnabledTest
+// fun testStudyNextState(){
+//     testSame(
+//         studyNextState(StudyState(TFCListDeck(listOf(t1,t2), DeckState.QUESTION), StudyDeckResult(5,0)), "yes"),
+//         StudyState(TFCListDeck(listOf(t1,t2), DeckState.ANSWER), StudyDeckResult(5,0)),
+//         "QUESTION"
+//     )
+// }
+
+fun isDone(state: StudyState): Boolean {
+    return state.cards.getState() == DeckState.EXHAUSTED
+}
+
+@EnabledTest
+fun testIsDone(){
+    testSame(
+        isDone(StudyState(TFCListDeck(listOf(t1,t2), DeckState.QUESTION), StudyDeckResult(5,0))),
+        false,
+        "QUESTION"
+    )
+
+    testSame(
+        isDone(StudyState(TFCListDeck(listOf(t1,t2), DeckState.ANSWER), StudyDeckResult(5,0))),
+        false,
+        "ANSWER"
+    )
+
+    testSame(
+        isDone(StudyState(TFCListDeck(listOf(t1,t2), DeckState.EXHAUSTED), StudyDeckResult(5,0))),
+        true,
+        "EXHAUSTED"
+    )
+}
+
+fun isDoneToText(state: StudyState): String{
+    return "Questions: ${state.result.numQuestions} Attempts: ${state.result.numAttempts}"
+} 
+
+@EnabledTest
+fun testIsDoneToText(){
+    testSame(
+        isDoneToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.QUESTION), StudyDeckResult(5,8))),
+        "Questions: 5 Attempts: 8",
+        "QUESTION"
+    )
+
+    testSame(
+        isDoneToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.ANSWER), StudyDeckResult(2,10))),
+        "Questions: 2 Attempts: 10",
+        "ANSWER"
+    )
+
+    testSame(
+        isDoneToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.EXHAUSTED), StudyDeckResult(1,1))),
+        "Questions: 1 Attempts: 1",
+        "EXHAUSTED"
+    )
+}
+
+fun studyDeck2(deck: IDeck){
+
+     reactConsole(
+        StudyState(deck, StudyDeckResult(deck.getSize(), 0)),
+        ::studyStateToText,
+        ::studyNextState,
+        ::isDone,
+        ::isDoneToText
+    )
+}
+
+@EnabledTest
+fun testStudyDeck2(){
+    fun studyDeckWorld() {
+         studyDeck2(TFCListDeck(listOf(t1,t2), DeckState.QUESTION))
+    }
+
+    testSame(
+        captureResults(
+            ::studyDeckWorld,
+            "",
+            "No",
+            "",
+            "nope!",
+            "",
+            "yes",
+            "",
+            "yes!",
+        ),
+        CapturedResult(
+            Unit,
+            "Hi", studyThink,
+            "Bye", studyCheck,
+            "1+1", studyThink,
+            "2", studyCheck,
+            "Hi", studyThink,
+            "Bye", studyCheck,
+            "1+1", studyThink,
+            "2", studyCheck,
+            "Questions: 2 Attempts: 4",
+        ),
+        "mix"
+    )
+}
 
 // TODO 2/2: Finally, design the program study2 that...
 //           a) Uses chooseMenuOption to select from amongst a
@@ -1128,14 +1139,32 @@ val studyCheck = "Correct? (Y)es/(N)o"
 //           - Studying through at least one deck
 //
 
+fun chooseAndStudy(){
+    // 1. Construct a list of options
+    // (ala the instructions above)
+    val deckOptions =
+        listOf(
+            NamedMenuOption(TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION), "Pre-Build"),
+            NamedMenuOption(PerfectSquaresDeck(0,5,DeckState.QUESTION), "Squares"),
+            NamedMenuOption(TFCListDeck(readCardsFile("./project2/example_tagged.txt"), DeckState.QUESTION), "Files")
+        )
+
+    // 2. Use chooseOption to let the user
+    //    select a deck
+    val deckChosen: NamedMenuOption<IDeck>  = chooseMenuOption(deckOptions)
+
+    // 3. Let the user study, return the
+    //    number correctly answered
+    studyDeck2(deckChosen.option)
+}
+
 // some useful labels
 val optSimple = "Simple Self-Report Evaluation"
 val optML = "ML Self-Report Evaluation"
 
 // -----------------------------------------------------------------
 
-// fun main() {
-// }
-
-runEnabledTests(this)
+// runEnabledTests(this)
 // main()
+chooseAndStudy()
+// studyDeck2(listOf(t1,t2))
