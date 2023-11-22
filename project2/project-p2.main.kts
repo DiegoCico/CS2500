@@ -6,11 +6,11 @@ import khoury.EnabledTest
 import khoury.captureResults
 import khoury.fileExists
 import khoury.fileReadAsList
+import khoury.isAnInteger
 import khoury.linesToString
 import khoury.reactConsole
 import khoury.runEnabledTests
 import khoury.testSame
-import khoury.isAnInteger
 
 // -----------------------------------------------------------------
 // Flash Card data design
@@ -79,7 +79,6 @@ fun testTaggedFlashCard() {
     )
 }
 
-
 // -----------------------------------------------------------------
 // Files of tagged flash cards
 // -----------------------------------------------------------------
@@ -116,9 +115,9 @@ fun testStringToTaggedFlashCard() {
 // checks for the files and recursive puts them in
 // list of flashcards and then it returns
 fun readCardsFile(file: String): List<TaggedFlashCard> {
-    if (!fileExists(file)) 
+    if (!fileExists(file)) {
         return emptyList<TaggedFlashCard>()
-    
+    }
 
     val fileList: List<String> = fileReadAsList(file)
     val flash: List<TaggedFlashCard> = fileList.map(::stringToTaggedFlashCard)
@@ -183,28 +182,28 @@ interface IDeck {
 
 // creates a class that takes in a list of tages and a starting deck state
 // follows the inheritate IDeck interface
-class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckState: DeckState): IDeck{
-
+class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckState: DeckState) : IDeck {
     // get the current state
-    override fun getState(): DeckState =  deckState
+    override fun getState(): DeckState = deckState
 
     // return the text depending on the state
     override fun getText(): String? {
-        return when(deckState){
+        return when (deckState) {
             DeckState.QUESTION -> cards[0].front
             DeckState.ANSWER -> cards[0].back
             DeckState.EXHAUSTED -> null
         }
-    } 
+    }
 
     // get the size of the list
-    override fun getSize(): Int =  cards.size
+    override fun getSize(): Int = cards.size
 
     // depending on the state it calls TFCListDeck, again and it drops
-    override fun flip(): TFCListDeck{
-        if(cards.isEmpty())
-            return TFCListDeck(cards,DeckState.EXHAUSTED)
-        return when(deckState){
+    override fun flip(): TFCListDeck {
+        if (cards.isEmpty()) {
+            return TFCListDeck(cards, DeckState.EXHAUSTED)
+        }
+        return when (deckState) {
             DeckState.QUESTION -> TFCListDeck(cards, DeckState.ANSWER)
             DeckState.ANSWER -> TFCListDeck(cards.drop(1), DeckState.QUESTION)
             else -> this
@@ -212,187 +211,196 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
     }
 
     // checks if the answer is correct and if it isnt it adds to the list
-    override fun next(correct: Boolean): TFCListDeck{
-        if(correct)
-            if(cards.size == 1)
-                return TFCListDeck(cards,DeckState.EXHAUSTED)
-            else
+    override fun next(correct: Boolean): TFCListDeck {
+        if (correct) {
+            if (cards.size == 1) {
+                return TFCListDeck(cards, DeckState.EXHAUSTED)
+            } else {
                 return TFCListDeck(cards.drop(1), DeckState.QUESTION)
-        else
+            }
+        } else {
             return TFCListDeck(cards.drop(1) + cards[0], DeckState.QUESTION)
+        }
     }
 }
 
 @EnabledTest
-fun testTFCListDeck(){
+fun testTFCListDeck() {
     testSame(
-        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).getState(),
+        TFCListDeck(listOf(t1, t2, t3), DeckState.QUESTION).getState(),
         DeckState.QUESTION,
-        "deck QUESTION"
+        "deck QUESTION",
     )
 
     testSame(
-        TFCListDeck(listOf(t1,t2,t3), DeckState.ANSWER).getState(),
+        TFCListDeck(listOf(t1, t2, t3), DeckState.ANSWER).getState(),
         DeckState.ANSWER,
-        "deck ANSWER"
+        "deck ANSWER",
     )
 
     testSame(
-        TFCListDeck(listOf(t1,t2,t3), DeckState.EXHAUSTED).getState(),
+        TFCListDeck(listOf(t1, t2, t3), DeckState.EXHAUSTED).getState(),
         DeckState.EXHAUSTED,
-        "deck EXHAUSTED"
+        "deck EXHAUSTED",
     )
 
     testSame(
         TFCListDeck(listOf(t1), DeckState.QUESTION).getText(),
         "Hi",
-        "text QUESTION"
+        "text QUESTION",
     )
 
     testSame(
         TFCListDeck(listOf(t1), DeckState.ANSWER).getText(),
         "Bye",
-        "text ANSWER"
+        "text ANSWER",
     )
-    
+
     testSame(
-        TFCListDeck(listOf(t1,t2,t3), DeckState.EXHAUSTED).getText(),
+        TFCListDeck(listOf(t1, t2, t3), DeckState.EXHAUSTED).getText(),
         null,
-        "text EXHAUSTED"
+        "text EXHAUSTED",
     )
 
     testSame(
-        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).getSize(),
+        TFCListDeck(listOf(t1, t2, t3), DeckState.QUESTION).getSize(),
         3,
-        "get Size"
+        "get Size",
     )
 
     testSame(
-        TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION).next(true).next(false).next(true).getText(),
+        TFCListDeck(listOf(t1, t2, t3), DeckState.QUESTION).next(true).next(false).next(true).getText(),
         "1+1",
-        "incorrect"
+        "incorrect",
     )
 }
 
-// creates a class that takes in the starting and ending int, as well as the DeckState
-class PerfectSquaresDeck(private val start: Int, private val max: Int, private val deckState: DeckState): IDeck {
-    // creates a list for the incorrect answers
-    private var incorrect = emptyList<Int>()
-
-    // returns the deckstate
+// gets 4 parameter, a start a max a deck state and the incorrect list
+// starts from the start and goes all the way to max, it saves the incorrect in the list
+class PerfectSquaresDeck(
+    private val start: Int,
+    private val max: Int,
+    private val deckState: DeckState,
+    private val incorrect: List<Int>,
+) : IDeck {
+    // gets state
     override fun getState(): DeckState = deckState
 
-    // checks if it has gone through the whole start - max, if it hasent if keeps going
-    // afterwards it goes through the incorrect list to the answers that are incorrect
-    override fun getText(): String?{
-        if(start >= max){
-            return when(deckState){
-            DeckState.QUESTION -> "$incorrect[0]^2 = ?"
-            DeckState.ANSWER -> "${incorrect[0]*incorrect[0]}"
-            DeckState.EXHAUSTED -> null
-            } 
-        } 
-        return when(deckState){
+    // gets text, if start is done it goes throug hthe incorrect list
+    override fun getText(): String? {
+        if (start == max && incorrect.isNotEmpty()) {
+            return when (deckState) {
+                DeckState.QUESTION -> "${incorrect[0]}^2 = ?"
+                DeckState.ANSWER -> "${incorrect[0] * incorrect[0]}"
+                DeckState.EXHAUSTED -> null
+            }
+        }
+        return when (deckState) {
             DeckState.QUESTION -> "$start^2 = ?"
-            DeckState.ANSWER -> "${start*start}"
+            DeckState.ANSWER -> "${start * start}"
             DeckState.EXHAUSTED -> null
-        } 
+        }
     }
 
-    // gets the max 
-    override fun getSize(): Int = max
+    // gets the size
+    override fun getSize(): Int = max - 1
 
-    // checks if there is no incorrect and it has reached the max then deck is exhausted
-    // it uses .also to modify the variable inside of it and drop the ones arelady incorrect
-    // if not it goes throught the list
-    // otherwise it keeps going through the start-max list
-    override fun flip(): IDeck{
-        if(start >= max+1 && incorrect.isEmpty())
-            return PerfectSquaresDeck(start, max, DeckState.EXHAUSTED)
-        else if(start >= max+1)
-            return when(deckState){
-                DeckState.QUESTION -> PerfectSquaresDeck(start, max, DeckState.ANSWER)
-                DeckState.ANSWER -> PerfectSquaresDeck(start, max, DeckState.QUESTION).also {incorrect.drop(1)}
+    // flips the card to answer to question
+    // if it is in the incorrect list it drops the first one
+    override fun flip(): IDeck {
+        if (start == max && incorrect.isEmpty()) {
+            return PerfectSquaresDeck(start, max, DeckState.EXHAUSTED, emptyList())
+        } else if (start == max) {
+            return when (deckState) {
+                DeckState.QUESTION -> PerfectSquaresDeck(start, max, DeckState.ANSWER, incorrect)
+                DeckState.ANSWER -> PerfectSquaresDeck(start, max, DeckState.QUESTION, incorrect.drop(1))
                 else -> this
             }
-        return when(deckState){
-            DeckState.QUESTION -> PerfectSquaresDeck(start, max, DeckState.ANSWER)
-            DeckState.ANSWER -> PerfectSquaresDeck(start+1, max, DeckState.QUESTION)
+        }
+        return when (deckState) {
+            DeckState.QUESTION -> PerfectSquaresDeck(start, max, DeckState.ANSWER, incorrect)
+            DeckState.ANSWER -> PerfectSquaresDeck(start + 1, max, DeckState.QUESTION, incorrect)
             else -> this
         }
     }
 
-    // if it is correct it just ignores otherwise it adds to the incorrect list
-    // uses .also to add the incorrect answers in order
-    override fun next(correct: Boolean): IDeck{
-        if(correct)
-            if(start >= max+1 && incorrect.isEmpty())
-                return PerfectSquaresDeck(start, max, DeckState.EXHAUSTED)
-            return PerfectSquaresDeck(start, max, DeckState.QUESTION)
-    
-        return PerfectSquaresDeck(start, max, DeckState.QUESTION).also { incorrect = incorrect + start }
-            
+    // checks if the answer is correct, if the answer is correct and it went through all the list
+    // it returns EXHAUSTED, however, if it is otherwise it returns the incorrect with the start and max
+    override fun next(correct: Boolean): IDeck {
+        return if (correct) {
+            if (start == max && incorrect.size == 1) {
+                PerfectSquaresDeck(start, max, DeckState.EXHAUSTED, emptyList())
+            } else if (start == max) {
+                PerfectSquaresDeck(start, max, DeckState.QUESTION, incorrect.drop(1))
+            } else {
+                PerfectSquaresDeck(start + 1, max, DeckState.QUESTION, incorrect)
+            }
+        } else {
+            return if (start == max) {
+                PerfectSquaresDeck(start, max, DeckState.QUESTION, incorrect.drop(1) + incorrect[0])
+            } else {
+                PerfectSquaresDeck(start + 1, max, DeckState.QUESTION, incorrect + start)
+            }
+        }
     }
 }
 
 @EnabledTest
-fun testPerfectSquaresDeck(){
+fun testPerfectSquaresDeck() {
     testSame(
-        PerfectSquaresDeck(0, 5, DeckState.QUESTION).getState(),
+        PerfectSquaresDeck(0, 5, DeckState.QUESTION, listOf()).getState(),
         DeckState.QUESTION,
-        "deck QUESTION"
+        "deck QUESTION",
     )
 
     testSame(
-        PerfectSquaresDeck(0, 5, DeckState.ANSWER).getState(),
+        PerfectSquaresDeck(0, 5, DeckState.ANSWER, listOf()).getState(),
         DeckState.ANSWER,
-        "deck ANSWER"
+        "deck ANSWER",
     )
 
     testSame(
-        PerfectSquaresDeck(0, 5, DeckState.EXHAUSTED).getState(),
+        PerfectSquaresDeck(0, 5, DeckState.EXHAUSTED, listOf()).getState(),
         DeckState.EXHAUSTED,
-        "deck EXHAUSTED"
+        "deck EXHAUSTED",
     )
 
     testSame(
-        PerfectSquaresDeck(0, 5, DeckState.QUESTION).getText(),
+        PerfectSquaresDeck(0, 5, DeckState.QUESTION, listOf()).getText(),
         "0^2 = ?",
-        "text QUESTION"
+        "text QUESTION",
     )
 
     testSame(
-        PerfectSquaresDeck(0, 5, DeckState.ANSWER).getText(),
+        PerfectSquaresDeck(0, 5, DeckState.ANSWER, listOf()).getText(),
         "0",
-        "text ANSWER"
+        "text ANSWER",
     )
 
-     testSame(
-        PerfectSquaresDeck(5, 5, DeckState.EXHAUSTED).getText(),
+    testSame(
+        PerfectSquaresDeck(5, 5, DeckState.EXHAUSTED, listOf()).getText(),
         null,
-        "text EXHAUSTED"
+        "text EXHAUSTED",
     )
 
     testSame(
-        PerfectSquaresDeck(0, 5, DeckState.QUESTION).flip().flip().getText(),
+        PerfectSquaresDeck(0, 5, DeckState.QUESTION, listOf()).flip().flip().getText(),
         "1^2 = ?",
-        "next Question"
+        "next Question",
     )
 
     testSame(
-        PerfectSquaresDeck(0, 5, DeckState.ANSWER).flip().flip().getText(),
+        PerfectSquaresDeck(0, 5, DeckState.ANSWER, listOf()).flip().flip().getText(),
         "1",
-        "next Answer"
+        "next Answer",
     )
 
     testSame(
-        PerfectSquaresDeck(3, 5, DeckState.ANSWER).next(false).next(true).next(true).getText(),
+        PerfectSquaresDeck(3, 5, DeckState.ANSWER, listOf()).next(false).next(true).getText(),
         "3^2 = ?",
-        "incorrect"
+        "incorrect",
     )
 }
-
-
 
 // -----------------------------------------------------------------
 // Menu design
@@ -430,13 +438,13 @@ val menuChoicePrefix = "You chose: "
 // Provides an interactive opportunity for the user to choose
 // an option or quit.
 fun <T : IMenuOption> chooseMenuOption(options: List<T>): T? {
-    //code here!
+    // code here!
     // gets the name of the menuTitle
     fun getOptionName(option: T): String = option.menuTitle()
 
     // calls 2 helper functions to help format it the way we are supposed to format
-    fun renderOptions(l: List<T>): String {
-        return choicesToText(l.map(::getOptionName))
+    fun renderOptions(list: List<T>): String {
+        return choicesToText(list.map(::getOptionName))
     }
 
     //  gets the string and checks if it is a int
@@ -444,21 +452,25 @@ fun <T : IMenuOption> chooseMenuOption(options: List<T>): T? {
     // if it is not it returns -1
     // if the string is -1 then returns -1
     fun keepIfValid(ip: String): Int {
-        if(!isAnInteger(ip))
-            return options.size+1
+        if (!isAnInteger(ip)) {
+            return options.size + 1
+        }
         val choice = ip.toInt() - 1
 
-        return if (choice in 0 until options.size) 
+        return if (choice in 0 until options.size) {
             choice
-        else if(choice == -1)
+        } else if (choice == -1) {
             -1
-        else 
+        } else {
             -2
-        
+        }
     }
 
     // calls a helper function that checks if it is a valid answers then returns int
-    fun transitionOptionChoice(ignoredState: Int, kbInput: String): Int {
+    fun transitionOptionChoice(
+        ignoredState: Int,
+        kbInput: String,
+    ): Int {
         return keepIfValid(kbInput)
     }
 
@@ -478,17 +490,17 @@ fun <T : IMenuOption> chooseMenuOption(options: List<T>): T? {
 
     // call reactConsole (with appropriate handlers)
     // return the selected option (or null for quit)
-    val a = reactConsole(
-        initialState = -2,
-        stateToText = { renderOptions(options) },
-        nextState = ::transitionOptionChoice,
-        isTerminalState = ::validChoiceEntered,
-        terminalStateToText = ::renderChoice
-    )
+    val a =
+        reactConsole(
+            initialState = -2,
+            stateToText = { renderOptions(options) },
+            nextState = ::transitionOptionChoice,
+            isTerminalState = ::validChoiceEntered,
+            terminalStateToText = ::renderChoice,
+        )
 
     return if (a == -1) null else options[a]
 }
-
 
 @EnabledTest
 fun testChooseMenuOption() {
@@ -668,25 +680,25 @@ fun <T> topK(
 @EnabledTest
 fun testTopK() {
     testSame(
-        topK(listOf("Hi", "Bye", "See Yea", "Night"), 3,{ s -> s.length }),
+        topK(listOf("Hi", "Bye", "See Yea", "Night"), 3, { s -> s.length }),
         listOf("See Yea", "Night", "Bye"),
         "longest String",
     )
 
     testSame(
-        topK(listOf(1, 6, 3, 9, 7, 3, 5), 3,{ n -> n }),
+        topK(listOf(1, 6, 3, 9, 7, 3, 5), 3, { n -> n }),
         listOf(9, 7, 6),
         "Biggest Number",
     )
 
     testSame(
-        topK(listOf("Hi", "Bye", "See Yea", "Night"), 2, { s -> s.length * -1 },),
+        topK(listOf("Hi", "Bye", "See Yea", "Night"), 2, { s -> s.length * -1 }),
         listOf("Hi", "Bye"),
         "Shortest String",
     )
 
     testSame(
-        topK(listOf(1, 6, 3, 9, 7, 3, 5), 2, { n -> n * -1 },),
+        topK(listOf(1, 6, 3, 9, 7, 3, 5), 2, { n -> n * -1 }),
         listOf(1, 3),
         "Smallest Number",
     )
@@ -698,12 +710,15 @@ fun testTopK() {
     )
 
     testSame(
-        topK(emptyList<String>(),  5, { s -> s.length },),
+        topK(emptyList<String>(), 5, { s -> s.length }),
         listOf(),
         "empty/STRING",
     )
 }
 
+// sorts the string and maps it out according to the wikipedia math that was given to us
+// once it is done mapping it out, it gets the last number in the bottom right and returns it
+// https://en.wikipedia.org/wiki/Levenshtein_distance
 fun levenshteinDistance(
     str1: String,
     str2: String,
@@ -821,7 +836,6 @@ fun <E, L> nnLabel(
 
 @EnabledTest
 fun testNNLabel() {
-
     //       a   a       ?       b           b
     // |--- --- --- --- --- --- --- --- --- ---|
     //   1   2   3   4   5   6   7   8   9  10
@@ -888,10 +902,10 @@ fun yesNoClassifier(s: String): ResultWithVotes<Boolean> {
     // 2. Check to see if the lower-case input
     //    shows up exactly within the dataset
     //    (you can assume there are no duplicates)
-    for(i in datasetYN.indices)
-        if(datasetYN[i].example == lowerS)
+    for (i in datasetYN.indices)
+        if (datasetYN[i].example == lowerS) {
             return ResultWithVotes(datasetYN[i].label, classifierK)
-    
+        }
 
     // 3. If the input was found, simply return its label with 100%
     //    confidence (3/3); otherwise, return the result of
@@ -968,122 +982,120 @@ data class StudyDeckResult(val numQuestions: Int, val numAttempts: Int)
 data class StudyState(val cards: IDeck, val result: StudyDeckResult)
 
 fun studyStateToText(state: StudyState): String {
-    return when(state.cards.getState()){
-        DeckState.QUESTION -> ""+state.cards.getText() + "\n$studyThink"
-        DeckState.ANSWER -> ""+state.cards.getText() + "\n$studyCheck"
-        DeckState.EXHAUSTED -> ""+state.cards.getText()
+    return when (state.cards.getState()) {
+        DeckState.QUESTION -> "" + state.cards.getText() + "\n$studyThink"
+        DeckState.ANSWER -> "" + state.cards.getText() + "\n$studyCheck"
+        DeckState.EXHAUSTED -> "" + state.cards.getText()
     }
 }
 
 @EnabledTest
-fun testStudyStateToText(){
+fun testStudyStateToText() {
     testSame(
-        studyStateToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.QUESTION), StudyDeckResult(5,0))),
+        studyStateToText(StudyState(TFCListDeck(listOf(t1, t2), DeckState.QUESTION), StudyDeckResult(5, 0))),
         "Hi\n$studyThink",
-        "QUESTION"
+        "QUESTION",
     )
 
     testSame(
-        studyStateToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.ANSWER), StudyDeckResult(5,0))),
+        studyStateToText(StudyState(TFCListDeck(listOf(t1, t2), DeckState.ANSWER), StudyDeckResult(5, 0))),
         "Bye\n$studyCheck",
-        "ANSWER"
+        "ANSWER",
     )
 
     testSame(
-        studyStateToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.EXHAUSTED), StudyDeckResult(5,0))),
+        studyStateToText(StudyState(TFCListDeck(listOf(t1, t2), DeckState.EXHAUSTED), StudyDeckResult(5, 0))),
         "null",
-        "EXHAUSTED"
+        "EXHAUSTED",
     )
 }
 
-fun studyAnswerHelper(s: String): Boolean {
-    return yesNoClassifier(s).label
-}
+fun studyAnswerHelper(
+    s: String,
+    eval: Int,
+): Boolean = if (eval == 1) isPositiveSimple(s) else isPositiveML(s)
 
-fun studyNextState(state: StudyState, userInput: String): StudyState {
+// checks which state the deck in, also getst the number of questions and attemps
+// if it passes answers it adds an extra point to the attempt, and it checks if the answer is correct
+fun studyNextState(
+    state: StudyState,
+    userInput: String,
+): StudyState {
     val questions = state.result.numQuestions
     val attempt = state.result.numAttempts
-    return when(state.cards.getState()){
+    return when (state.cards.getState()) {
         DeckState.QUESTION -> StudyState(state.cards.flip(), StudyDeckResult(questions, attempt))
-        DeckState.ANSWER -> StudyState(state.cards.next(studyAnswerHelper(userInput)), StudyDeckResult(questions, attempt+1))
+        DeckState.ANSWER -> StudyState(state.cards.next(studyAnswerHelper(userInput, eval)), StudyDeckResult(questions, attempt + 1))
         DeckState.EXHAUSTED -> StudyState(state.cards, StudyDeckResult(questions, attempt))
     }
 }
 
-// @EnabledTest
-// fun testStudyNextState(){
-//     testSame(
-//         studyNextState(StudyState(TFCListDeck(listOf(t1,t2), DeckState.QUESTION), StudyDeckResult(5,0)), "yes"),
-//         StudyState(TFCListDeck(listOf(t1,t2), DeckState.ANSWER), StudyDeckResult(5,0)),
-//         "QUESTION"
-//     )
-// }
-
+// checks if the deck is exhausted
 fun isDone(state: StudyState): Boolean {
     return state.cards.getState() == DeckState.EXHAUSTED
 }
 
 @EnabledTest
-fun testIsDone(){
+fun testIsDone() {
     testSame(
-        isDone(StudyState(TFCListDeck(listOf(t1,t2), DeckState.QUESTION), StudyDeckResult(5,0))),
+        isDone(StudyState(TFCListDeck(listOf(t1, t2), DeckState.QUESTION), StudyDeckResult(5, 0))),
         false,
-        "QUESTION"
+        "QUESTION",
     )
 
     testSame(
-        isDone(StudyState(TFCListDeck(listOf(t1,t2), DeckState.ANSWER), StudyDeckResult(5,0))),
+        isDone(StudyState(TFCListDeck(listOf(t1, t2), DeckState.ANSWER), StudyDeckResult(5, 0))),
         false,
-        "ANSWER"
+        "ANSWER",
     )
 
     testSame(
-        isDone(StudyState(TFCListDeck(listOf(t1,t2), DeckState.EXHAUSTED), StudyDeckResult(5,0))),
+        isDone(StudyState(TFCListDeck(listOf(t1, t2), DeckState.EXHAUSTED), StudyDeckResult(5, 0))),
         true,
-        "EXHAUSTED"
+        "EXHAUSTED",
     )
 }
 
-fun isDoneToText(state: StudyState): String{
+// once the deck is done, prints out this
+fun isDoneToText(state: StudyState): String {
     return "Questions: ${state.result.numQuestions} Attempts: ${state.result.numAttempts}"
-} 
+}
 
 @EnabledTest
-fun testIsDoneToText(){
+fun testIsDoneToText() {
     testSame(
-        isDoneToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.QUESTION), StudyDeckResult(5,8))),
+        isDoneToText(StudyState(TFCListDeck(listOf(t1, t2), DeckState.QUESTION), StudyDeckResult(5, 8))),
         "Questions: 5 Attempts: 8",
-        "QUESTION"
+        "QUESTION",
     )
 
     testSame(
-        isDoneToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.ANSWER), StudyDeckResult(2,10))),
+        isDoneToText(StudyState(TFCListDeck(listOf(t1, t2), DeckState.ANSWER), StudyDeckResult(2, 10))),
         "Questions: 2 Attempts: 10",
-        "ANSWER"
+        "ANSWER",
     )
 
     testSame(
-        isDoneToText(StudyState(TFCListDeck(listOf(t1,t2), DeckState.EXHAUSTED), StudyDeckResult(1,1))),
+        isDoneToText(StudyState(TFCListDeck(listOf(t1, t2), DeckState.EXHAUSTED), StudyDeckResult(1, 1))),
         "Questions: 1 Attempts: 1",
-        "EXHAUSTED"
+        "EXHAUSTED",
     )
 }
 
-fun studyDeck2(deck: IDeck){
-
-     reactConsole(
+fun studyDeck2(deck: IDeck) {
+    reactConsole(
         StudyState(deck, StudyDeckResult(deck.getSize(), 0)),
         ::studyStateToText,
         ::studyNextState,
         ::isDone,
-        ::isDoneToText
+        ::isDoneToText,
     )
 }
 
 @EnabledTest
-fun testStudyDeck2(){
+fun testStudyDeck2() {
     fun studyDeckWorld() {
-         studyDeck2(TFCListDeck(listOf(t1,t2), DeckState.QUESTION))
+        studyDeck2(TFCListDeck(listOf(t1, t2), DeckState.QUESTION))
     }
 
     testSame(
@@ -1110,61 +1122,53 @@ fun testStudyDeck2(){
             "2", studyCheck,
             "Questions: 2 Attempts: 4",
         ),
-        "mix"
+        "mix",
     )
-}
-
-// TODO 2/2: Finally, design the program study2 that...
-//           a) Uses chooseMenuOption to select from amongst a
-//              list of decks; the options must include at least
-//              one deck read from a file (using
-//              readTaggedFlashCardsFile), one generated by code
-//              (using PerfectSquaresDeck), and one that filters
-//              based upon a tag being present (e.g., only
-//              "hard" cards from a list; this may be the cards
-//              read from a file).
-//           b) If the menu in (a) didn't result in quitting, then
-//              uses chooseMenuOption again to select from amongst
-//              the two sentiment analysis functions.
-//           c) If the menu in (b) didn't result in quitting, then
-//              uses studyDeck2 to study through the selected deck
-//              with the selected sentiment analysis function.
-//           d) Returns to (a) and continues until either of the
-//              two menus indicate a desire to quit.
-//
-//           Make sure to provide tests that capture (at least)...
-//           - Quitting at the selection of decks
-//           - Quitting at the selection of sentiment analysis
-//             functions
-//           - Studying through at least one deck
-//
-
-fun chooseAndStudy(){
-    // 1. Construct a list of options
-    // (ala the instructions above)
-    val deckOptions =
-        listOf(
-            NamedMenuOption(TFCListDeck(listOf(t1,t2,t3), DeckState.QUESTION), "Pre-Build"),
-            NamedMenuOption(PerfectSquaresDeck(0,5,DeckState.QUESTION), "Squares"),
-            NamedMenuOption(TFCListDeck(readCardsFile("./project2/example_tagged.txt"), DeckState.QUESTION), "Files")
-        )
-
-    // 2. Use chooseOption to let the user
-    //    select a deck
-    val deckChosen: NamedMenuOption<IDeck>  = chooseMenuOption(deckOptions)
-
-    // 3. Let the user study, return the
-    //    number correctly answered
-    studyDeck2(deckChosen.option)
 }
 
 // some useful labels
 val optSimple = "Simple Self-Report Evaluation"
 val optML = "ML Self-Report Evaluation"
+var eval = 0
+
+// chooses the list options, then chooses the evaluation option, afterwards it runs
+// studydeck2 and it runs chooseandstudy again to re run the program
+fun chooseAndStudy() {
+    // 1. Construct a list of options
+    // (ala the instructions above)
+    val deckOptions =
+        listOf(
+            NamedMenuOption(TFCListDeck(listOf(t1, t2, t3), DeckState.QUESTION), "Pre-Build"),
+            NamedMenuOption(PerfectSquaresDeck(1, 5, DeckState.QUESTION, listOf()), "Squares"),
+            NamedMenuOption(TFCListDeck(readCardsFile("./project2/example_tagged.txt"), DeckState.QUESTION), "Files"),
+        )
+
+    // 2. Use chooseOption to let the user
+    //    select a deck
+    val deckChosen = chooseMenuOption(deckOptions)
+
+    if (deckChosen != null) {
+        val evaluation =
+            chooseMenuOption(
+                listOf(
+                    NamedMenuOption(TFCListDeck(listOf(), DeckState.QUESTION), optSimple),
+                    NamedMenuOption(TFCListDeck(listOf(), DeckState.QUESTION), optML),
+                ),
+            )
+        if (evaluation?.menuTitle() == optSimple) {
+            eval = 1
+        } else {
+            eval = 0
+        }
+
+        val deck: IDeck = deckChosen.option
+        studyDeck2(deck)
+        chooseAndStudy()
+    }
+}
 
 // -----------------------------------------------------------------
 
-// runEnabledTests(this)
+runEnabledTests(this)
 // main()
-chooseAndStudy()
-// studyDeck2(listOf(t1,t2))
+// chooseAndStudy()
