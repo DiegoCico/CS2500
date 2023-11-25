@@ -1136,11 +1136,20 @@ var eval = 0
 fun chooseAndStudy() {
     // 1. Construct a list of options
     // (ala the instructions above)
+    // FILTERS ALL THE TAG THAT HAS SCIENCE
     val deckOptions =
         listOf(
             NamedMenuOption(TFCListDeck(listOf(t1, t2, t3), DeckState.QUESTION), "Pre-Build"),
             NamedMenuOption(PerfectSquaresDeck(1, 5, DeckState.QUESTION, listOf()), "Squares"),
-            NamedMenuOption(TFCListDeck(readCardsFile("./project2/example_tagged.txt"), DeckState.QUESTION), "Files"),
+            NamedMenuOption(
+                TFCListDeck(
+                    readCardsFile("./project2/example_tagged.txt")
+                        .filter { it.tag.contains("science") }
+                        .toList(),
+                    DeckState.QUESTION,
+                ),
+                "Files",
+            ),
         )
 
     // 2. Use chooseOption to let the user
@@ -1167,8 +1176,198 @@ fun chooseAndStudy() {
     }
 }
 
+@EnabledTest
+fun testChooseAndStudy() {
+    testSame(
+        captureResults(
+            ::chooseAndStudy,
+            "",
+            "No",
+            "",
+            "0",
+        ),
+        CapturedResult(
+            Unit,
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You quit",
+        ),
+        "quit",
+    )
+
+    testSame(
+        captureResults(
+            ::chooseAndStudy,
+            "1",
+            "1",
+            "",
+            "Y",
+            "",
+            "No",
+            "coding",
+            "Yes",
+            "",
+            "yes",
+            "0",
+        ),
+        CapturedResult(
+            Unit,
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You chose: Pre-Build",
+            "1. Simple Self-Report Evaluation",
+            "2. ML Self-Report Evaluation",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You chose: Simple Self-Report Evaluation",
+            "Hi",
+            "Think of the result? Press enter to continue",
+            "Bye",
+            "Correct? (Y)es/(N)o",
+            "1+1",
+            "Think of the result? Press enter to continue",
+            "2",
+            "Correct? (Y)es/(N)o",
+            "What class is this",
+            "Think of the result? Press enter to continue",
+            "Coding",
+            "Correct? (Y)es/(N)o",
+            "1+1",
+            "Think of the result? Press enter to continue",
+            "2",
+            "Correct? (Y)es/(N)o",
+            "Questions: 3 Attempts: 4",
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You quit",
+        ),
+        "1. Pre-Build SIMPLE REPORT",
+    )
+
+    testSame(
+        captureResults(
+            ::chooseAndStudy,
+            "2",
+            "2",
+            "",
+            "yea",
+            "",
+            "nah",
+            "coding",
+            "yup",
+            "",
+            "yes",
+            "",
+            "yea",
+            "0",
+        ),
+        CapturedResult(
+            Unit,
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You chose: Squares",
+            "1. Simple Self-Report Evaluation",
+            "2. ML Self-Report Evaluation",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You chose: ML Self-Report Evaluation",
+            "1^2 = ?",
+            "Think of the result? Press enter to continue",
+            "1",
+            "Correct? (Y)es/(N)o",
+            "2^2 = ?",
+            "Think of the result? Press enter to continue",
+            "4",
+            "Correct? (Y)es/(N)o",
+            "3^2 = ?",
+            "Think of the result? Press enter to continue",
+            "9",
+            "Correct? (Y)es/(N)o",
+            "4^2 = ?",
+            "Think of the result? Press enter to continue",
+            "16",
+            "Correct? (Y)es/(N)o",
+            "2^2 = ?",
+            "Think of the result? Press enter to continue",
+            "4",
+            "Correct? (Y)es/(N)o",
+            "Questions: 4 Attempts: 5",
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You quit",
+        ),
+        "2. Perfect Squares ML REPORT",
+    )
+
+    testSame(
+        captureResults(
+            ::chooseAndStudy,
+            "3",
+            "2",
+            "",
+            "Yea",
+            "0",
+        ),
+        CapturedResult(
+            Unit,
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You chose: Files",
+            "1. Simple Self-Report Evaluation",
+            "2. ML Self-Report Evaluation",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You chose: ML Self-Report Evaluation",
+            "c",
+            "Think of the result? Press enter to continue",
+            "3",
+            "Correct? (Y)es/(N)o",
+            "Questions: 1 Attempts: 1",
+            "1. Pre-Build",
+            "2. Squares",
+            "3. Files",
+            "",
+            "Enter your choice (or 0 to quit)",
+            "You quit",
+        ),
+        "3. Files WITH FILTER OF SCIENCE",
+    )
+}
+
 // -----------------------------------------------------------------
 
 runEnabledTests(this)
-// main()
 // chooseAndStudy()
