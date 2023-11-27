@@ -199,7 +199,7 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
     override fun getSize(): Int = cards.size
 
     // depending on the state it calls TFCListDeck, again and it drops
-    override fun flip(): TFCListDeck {
+    override fun flip(): IDeck {
         if (cards.isEmpty()) {
             return TFCListDeck(cards, DeckState.EXHAUSTED)
         }
@@ -211,7 +211,7 @@ class TFCListDeck(private val cards: List<TaggedFlashCard>, private val deckStat
     }
 
     // checks if the answer is correct and if it isnt it adds to the list
-    override fun next(correct: Boolean): TFCListDeck {
+    override fun next(correct: Boolean): IDeck {
         if (correct) {
             if (cards.size == 1) {
                 return TFCListDeck(cards, DeckState.EXHAUSTED)
